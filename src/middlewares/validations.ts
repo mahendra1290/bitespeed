@@ -8,7 +8,7 @@ const identitySchema = Joi.object({
     .pattern(/^[0-9]+$/)
     .allow(null),
 })
-  .or('email', 'phoneNumber')
+  .and('email', 'phoneNumber')
   .custom((value, helpers) => {
     const { email, phoneNumber } = value;
     if (email === null && phoneNumber === null) {
