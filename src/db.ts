@@ -19,7 +19,7 @@ const sequelize = new Sequelize(DB_NAME, DB_USER, DB_PASSWORD, {
   host: DB_HOST,
   dialect: 'postgres',
   port: DB_PORT,
-  logging: process.env.NODE_ENV === 'development' ? console.log : false,
+  logging: process.env.NODE_ENV === 'development' ? console.log : () => {},
 });
 
 export { client, sequelize };

@@ -7,19 +7,26 @@ const addContact = async (
   phoneNumber: string | null,
   linkedId: number | null = null,
   linkPrecedence: 'primary' | 'secondary' = 'primary'
-) => {
-  try {
-    const res = await Contact.create({
+): Promise<Contact> => {
+  return Contact.create({
+    email,
+    phoneNumber,
+    linkedId,
+    linkPrecedence,
+  });
+};
+
+const doesContactExist = async (
+  email: string | null,
+  phoneNumber: string | null
+): Promise<boolean> => {
+  const contact = await Contact.findOne({
+    where: {
       email,
       phoneNumber,
-      linkedId,
-      linkPrecedence,
-    });
-    return res;
-  } catch (err) {
-    console.log(err);
-    return null;
-  }
+    },
+  });
+  return !!contact;
 };
 
 const checkIfContactExists = (
@@ -33,33 +40,33 @@ const checkIfContactExists = (
   return index !== -1;
 };
 
-const getContactsWithEmail = async (email: string) => {
-  try {
-    const contacts = await Contact.findAll({
-      where: {
-        email,
-      },
-    });
-    return contacts;
-  } catch (err) {
-    console.log(err);
-    return [];
-  }
-};
+// const getContactsWithEmail = async (email: string) => {
+//   try {
+//     const contacts = await Contact.findAll({
+//       where: {
+//         email,
+//       },
+//     });
+//     return contacts;
+//   } catch (err) {
+//     console.log(err);
+//     return [];
+//   }
+// };
 
-const getContactsWithPhoneNumber = async (phoneNumber: string) => {
-  try {
-    const contacts = await Contact.findAll({
-      where: {
-        phoneNumber,
-      },
-    });
-    return contacts;
-  } catch (err) {
-    console.log(err);
-    return [];
-  }
-};
+// const getContactsWithPhoneNumber = async (phoneNumber: string) => {
+//   try {
+//     const contacts = await Contact.findAll({
+//       where: {
+//         phoneNumber,
+//       },
+//     });
+//     return contacts;
+//   } catch (err) {
+//     console.log(err);
+//     return [];
+//   }
+// };
 
 const getContactsWithEmailOrPhoneNumber = async (
   email: string,
@@ -84,7 +91,7 @@ const getContactsWithEmailOrPhoneNumber = async (
   }
 };
 
-const findParents = (contacts: Contact[]) => {
+const findPrimaryContacts = (contacts: Contact[]) => {
   const parentIds = new Set<number>();
   contacts.forEach((contact) => {
     if (contact.linkedId) {
@@ -95,6 +102,13 @@ const findParents = (contacts: Contact[]) => {
   });
 
   return Array.from(parentIds);
+};
+
+const findPrimaryContact = (contact: Contact) => {
+  if (contact.linkedId) {
+    return contact.linkedId;
+  }
+  return contact.id;
 };
 
 const generateRespone = async (primaryContactId: number) => {
@@ -140,12 +154,22 @@ const generateRespone = async (primaryContactId: number) => {
   return response;
 };
 
+const canMerge = (contact1: Contact, contact2: Contact) => {
+  return (
+    contact1.email === contact2.email &&
+    contact1.phoneNumber === contact2.phoneNumber &&
+    contact1.phoneNumber !== null &&
+    contact1.email !== null
+  );
+};
+
 export {
   addContact,
-  getContactsWithEmail,
-  getContactsWithPhoneNumber,
   checkIfContactExists,
   getContactsWithEmailOrPhoneNumber,
-  findParents,
+  findPrimaryContacts,
+  findPrimaryContact,
   generateRespone,
+  canMerge,
+  doesContactExist,
 };

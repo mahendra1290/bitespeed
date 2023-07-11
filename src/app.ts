@@ -1,14 +1,16 @@
 import express, { Express, Request, Response } from 'express';
 import morgan from 'morgan';
-import { log } from 'console';
 import Contact from './model';
 import {
   addContact,
-  findParents,
+  findPrimaryContact,
+  findPrimaryContacts,
   generateRespone,
   getContactsWithEmailOrPhoneNumber,
 } from './utils';
 import { Op } from 'sequelize';
+import './middlewares/validations';
+import validateRequestBody from './middlewares/validations';
 
 const app: Express = express();
 
@@ -16,20 +18,27 @@ app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(morgan('dev'));
 
-app.get('/', (_: Request, res: Response) => {
-  res.json({
-    message: 'Hello World!',
-  });
-});
+Contact.sync();
 
-app.post('/identify', async (req: Request, res: Response) => {
-  const { email, phoneNumber } = req.body;
-  try {
-    if (email || phoneNumber) {
+app.post(
+  '/identify',
+  validateRequestBody,
+  async (req: Request, res: Response) => {
+    const { email, phoneNumber } = req.body;
+    let primaryContactId: number | null = null;
+    try {
       const matches = await getContactsWithEmailOrPhoneNumber(
         email,
         phoneNumber
       );
+
+      const existingContact = matches.find(
+        (item) => item.email === email && item.phoneNumber === phoneNumber
+      );
+
+      if (existingContact) {
+        primaryContactId = findPrimaryContact(existingContact);
+      }
 
       const withSameEmail = matches.filter(
         (contact) => contact.email === email
@@ -38,127 +47,62 @@ app.post('/identify', async (req: Request, res: Response) => {
         (contact) => contact.phoneNumber === phoneNumber
       );
 
-      const contact = matches.find(
-        (item) => item.email === email && item.phoneNumber === phoneNumber
-      );
-
-      if (contact) {
-        const parent = findParents([contact]);
-        const response = await generateRespone(parent[0]);
-        res.status(200).json(response);
-        return;
-      }
-
-      if (matches.length === 0) {
-        const contact = await addContact(email, phoneNumber);
-        if (contact) {
-          const response = await generateRespone(contact.get('id'));
-          res.status(200).json(response);
-          return;
-        }
+      if (existingContact) {
+        primaryContactId = findPrimaryContact(existingContact);
+      } else if (matches.length === 0) {
+        primaryContactId = (await addContact(email, phoneNumber)).id;
       } else if (email === null || phoneNumber === null) {
-        const parent = findParents(matches);
-        const response = await generateRespone(parent[0]);
-        res.status(200).json(response);
-        return;
-      } else if (withSameEmail.length > 0 && withSamePhoneNumber.length === 0) {
-        const oldestContact = withSameEmail[0];
-        const contact = await addContact(
-          email,
-          phoneNumber,
-          oldestContact.linkPrecedence === 'primary'
-            ? (oldestContact.get('id') as unknown as number)
-            : oldestContact.linkedId,
-          'secondary'
-        );
-        console.log(contact);
-
-        if (contact && contact.linkedId) {
-          const response = await generateRespone(contact.linkedId);
-          log(response, 'sent');
-          res.status(200).json(response);
-          return;
-        }
-        res.status(500).json({
-          message: 'Internal server error',
-        });
-      } else if (withSameEmail.length === 0 && withSamePhoneNumber.length > 0) {
-        const oldestContact = withSamePhoneNumber[0];
-        const contact = await addContact(
-          email,
-          phoneNumber,
-          oldestContact.linkPrecedence === 'primary'
-            ? (oldestContact.get('id') as unknown as number)
-            : oldestContact.linkedId,
-          'secondary'
-        );
-        console.log(contact);
-
-        if (contact && contact.linkedId) {
-          const response = await generateRespone(contact.linkedId);
-          log(response, 'sent');
-          res.status(200).json(response);
-          return;
-        }
-        res.status(500).json({
-          message: 'Internal server error',
-        });
-        return;
+        primaryContactId = findPrimaryContacts(matches)[0];
+      } else if (
+        withSamePhoneNumber.length === 0 ||
+        withSameEmail.length === 0
+      ) {
+        const oldestContact = matches[0];
+        primaryContactId = findPrimaryContact(oldestContact);
+        await addContact(email, phoneNumber, primaryContactId, 'secondary');
       } else {
-        const parents = findParents(matches);
-
+        const parents = findPrimaryContacts(matches);
         if (parents.length === 1) {
-          const response = await generateRespone(parents[0]);
-          res.status(200).json(response);
-          return;
+          primaryContactId = parents[0];
         } else {
           const p1 = await Contact.findByPk(parents[0]);
           const p2 = await Contact.findByPk(parents[1]);
-          console.log(p1, p2);
 
-          if (p1 && p2) {
-            if (p1.get('createdAt') < p2.get('createdAt')) {
-              await Contact.update(
-                { linkedId: p1.id, linkPrecedence: 'secondary' },
-                { where: { [Op.or]: [{ id: p2.id }, { linkedId: p2.id }] } }
-              );
-              const response = await generateRespone(p1.id);
-              res.status(200).json(response);
-              return;
-            } else {
-              await Contact.update(
-                { linkedId: p2.id, linkPrecedence: 'secondary' },
-                { where: { [Op.or]: [{ id: p1.id }, { linkedId: p1.id }] } }
-              );
-              const response = await generateRespone(p2.id);
-              res.status(200).json(response);
+          if (!p1 || !p2) {
+            throw new Error('Internal server error');
+          }
 
-              return;
-            }
+          if (p1.createdAt < p2.createdAt) {
+            await Contact.update(
+              { linkedId: p1.id, linkPrecedence: 'secondary' },
+              { where: { [Op.or]: [{ id: p2.id }, { linkedId: p2.id }] } }
+            );
+            primaryContactId = p1.id;
           } else {
-            res.json({
-              message: 'Multiple contacts found',
-            });
+            await Contact.update(
+              { linkedId: p2.id, linkPrecedence: 'secondary' },
+              { where: { [Op.or]: [{ id: p1.id }, { linkedId: p1.id }] } }
+            );
+            primaryContactId;
           }
         }
-        return;
       }
 
-      res.status(201).json({
-        message: 'Contact created successfully',
-      });
-    } else {
-      res.status(400).json({
-        message: 'Invalid request',
+      if (primaryContactId) {
+        const response = await generateRespone(primaryContactId);
+        res.status(200).json(response);
+        return;
+      } else {
+        res.status(500).json({
+          message: 'Internal server error',
+        });
+      }
+    } catch (err) {
+      res.status(500).json({
+        message: 'Internal server error',
       });
     }
-  } catch (err) {
-    console.log(err);
-
-    res.status(500).json({
-      message: 'Internal server error',
-    });
   }
-});
+);
 
 export default app;

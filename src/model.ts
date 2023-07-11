@@ -16,6 +16,8 @@ class Contact extends Model<
   declare phoneNumber: string | null;
   declare linkedId: number | null;
   declare linkPrecedence: 'primary' | 'secondary';
+  declare createdAt: CreationOptional<Date>;
+  declare updatedAt: CreationOptional<Date>;
 }
 
 Contact.init(
@@ -41,6 +43,8 @@ Contact.init(
       type: DataTypes.ENUM('primary', 'secondary'),
       allowNull: true,
     },
+    createdAt: DataTypes.DATE,
+    updatedAt: DataTypes.DATE,
   },
   {
     sequelize,

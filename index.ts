@@ -18,7 +18,9 @@ sequelize
     });
   })
   .catch((err) => {
-    console.log('Error connecting to database', err);
+    console.log('ENV', process.env, process.env.DB_HOST);
+
+    console.log('EVNV Error connecting to database', err);
   });
 
 export default server;
