@@ -2,6 +2,8 @@
 
 you can test it [here](http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify)
 
+endpoint: <http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify>
+
 ## Setup
 
 Clone the repo
