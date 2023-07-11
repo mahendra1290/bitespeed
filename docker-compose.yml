@@ -2,16 +2,19 @@ version: "3"
 services:
   app:
     restart: on-failure
-    env_file:
-      - .env.production.local
     build: .
     depends_on:
       - postgres
     environment:
       NODE_ENV: production
       PORT: 3000
+      DB_HOST: postgres
+      DB_PORT: 5432
+      DB_NAME: postgres
+      DB_USER: postgres
+      DB_PASSWORD: helloworld
     ports:
-      - "443:3000"
+      - "80:3000"
 
   postgres:
     image: postgres:alpine
