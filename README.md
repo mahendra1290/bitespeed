@@ -4,6 +4,8 @@ you can test it [here](http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/i
 
 endpoint: <http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify>
 
+My resume [here](https://drive.google.com/file/d/1p5Uw9JBF9qozrO-1XmVb996YtVuO3KrF/view?usp=sharing)
+
 ## Setup
 
 Clone the repo
