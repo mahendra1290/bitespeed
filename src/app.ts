@@ -20,6 +20,10 @@ app.use(morgan('dev'));
 
 Contact.sync();
 
+app.get('/', (req: Request, res: Response) => {
+  res.send('Hello World!');
+});
+
 app.post(
   '/identify',
   validateRequestBody,
