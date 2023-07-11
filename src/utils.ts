@@ -2,6 +2,14 @@ import { Op } from 'sequelize';
 import Contact from './model';
 import { filter, map, uniq } from 'lodash';
 
+/**
+ * Add a new contact to the database
+ * @param email
+ * @param phoneNumber
+ * @param linkedId
+ * @param linkPrecedence
+ * @returns Promise<Contact>
+ */
 const addContact = async (
   email: string | null,
   phoneNumber: string | null,
@@ -16,99 +24,61 @@ const addContact = async (
   });
 };
 
-const doesContactExist = async (
+/**
+ * Get all contacts with the same email or phone number
+ * @param email
+ * @param phoneNumber
+ * @returns Promise<Contact[]>
+ */
+const getContactsWithEmailOrPhoneNumber = async (
+  email: string,
+  phoneNumber: string
+) => {
+  return Contact.findAll({
+    where: {
+      [Op.or]: [
+        {
+          email: { [Op.ne]: null, [Op.eq]: email },
+        },
+        { phoneNumber: { [Op.ne]: null, [Op.eq]: phoneNumber } },
+      ],
+    },
+    order: [['createdAt', 'ASC']],
+  });
+};
+
+const findAllPrimaryContactIds = (contacts: Contact[]) => {
+  const ids = contacts.map(findPrimaryContactId);
+  return uniq(ids);
+};
+
+const findPrimaryContactId = (contact: Contact) => {
+  return contact.linkedId ? contact.linkedId : contact.id;
+};
+
+const findContactByEmailAndPhoneNumber = async (
   email: string | null,
   phoneNumber: string | null
-): Promise<boolean> => {
-  const contact = await Contact.findOne({
+) => {
+  return Contact.findOne({
     where: {
       email,
       phoneNumber,
     },
   });
-  return !!contact;
 };
 
-const checkIfContactExists = (
-  email: string,
-  phoneNumber: string,
-  contacts: Contact[]
-) => {
-  const index = contacts.findIndex(
-    (contact) => contact.email === email && contact.phoneNumber === phoneNumber
+/**
+ * Update the primary contact id of the contact with id or linkedId = id
+ * @param primaryContactId new primary contact id
+ * @param id old id which is either primary or secondary
+ * @returns Promise<[number]>
+ */
+const updatePrimaryContact = async (primaryContactId: number, id: number) => {
+  return Contact.update(
+    { linkedId: primaryContactId, linkPrecedence: 'secondary' },
+    { where: { [Op.or]: [{ id }, { linkedId: id }] } }
   );
-  return index !== -1;
-};
-
-// const getContactsWithEmail = async (email: string) => {
-//   try {
-//     const contacts = await Contact.findAll({
-//       where: {
-//         email,
-//       },
-//     });
-//     return contacts;
-//   } catch (err) {
-//     console.log(err);
-//     return [];
-//   }
-// };
-
-// const getContactsWithPhoneNumber = async (phoneNumber: string) => {
-//   try {
-//     const contacts = await Contact.findAll({
-//       where: {
-//         phoneNumber,
-//       },
-//     });
-//     return contacts;
-//   } catch (err) {
-//     console.log(err);
-//     return [];
-//   }
-// };
-
-const getContactsWithEmailOrPhoneNumber = async (
-  email: string,
-  phoneNumber: string
-) => {
-  try {
-    const contacts = await Contact.findAll({
-      where: {
-        [Op.or]: [
-          {
-            email: { [Op.ne]: null, [Op.eq]: email },
-          },
-          { phoneNumber: { [Op.ne]: null, [Op.eq]: phoneNumber } },
-        ],
-      },
-      order: [['createdAt', 'ASC']],
-    });
-    return contacts;
-  } catch (err) {
-    console.log(err);
-    return [];
-  }
-};
-
-const findPrimaryContacts = (contacts: Contact[]) => {
-  const parentIds = new Set<number>();
-  contacts.forEach((contact) => {
-    if (contact.linkedId) {
-      parentIds.add(contact.linkedId);
-    } else {
-      parentIds.add(contact.id);
-    }
-  });
-
-  return Array.from(parentIds);
-};
-
-const findPrimaryContact = (contact: Contact) => {
-  if (contact.linkedId) {
-    return contact.linkedId;
-  }
-  return contact.id;
 };
 
 const generateRespone = async (primaryContactId: number) => {
@@ -154,22 +124,12 @@ const generateRespone = async (primaryContactId: number) => {
   return response;
 };
 
-const canMerge = (contact1: Contact, contact2: Contact) => {
-  return (
-    contact1.email === contact2.email &&
-    contact1.phoneNumber === contact2.phoneNumber &&
-    contact1.phoneNumber !== null &&
-    contact1.email !== null
-  );
-};
-
 export {
   addContact,
-  checkIfContactExists,
   getContactsWithEmailOrPhoneNumber,
-  findPrimaryContacts,
-  findPrimaryContact,
+  findAllPrimaryContactIds,
+  findPrimaryContactId,
+  findContactByEmailAndPhoneNumber,
   generateRespone,
-  canMerge,
-  doesContactExist,
+  updatePrimaryContact,
 };

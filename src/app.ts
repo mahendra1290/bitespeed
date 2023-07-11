@@ -3,14 +3,16 @@ import morgan from 'morgan';
 import Contact from './model';
 import {
   addContact,
-  findPrimaryContact,
-  findPrimaryContacts,
+  findPrimaryContactId,
+  findAllPrimaryContactIds,
   generateRespone,
   getContactsWithEmailOrPhoneNumber,
+  findContactByEmailAndPhoneNumber,
+  updatePrimaryContact,
 } from './utils';
-import { Op } from 'sequelize';
 import './middlewares/validations';
 import validateRequestBody from './middlewares/validations';
+import { StatusCodes } from 'http-status-codes';
 
 const app: Express = express();
 
@@ -29,19 +31,29 @@ app.post(
   validateRequestBody,
   async (req: Request, res: Response) => {
     const { email, phoneNumber } = req.body;
-    let primaryContactId: number | null = null;
     try {
+      const existingContact = await findContactByEmailAndPhoneNumber(
+        email,
+        phoneNumber
+      );
+
+      if (existingContact) {
+        const response = await generateRespone(
+          findPrimaryContactId(existingContact)
+        );
+        res.status(StatusCodes.OK).send(response);
+        return;
+      }
+
       const matches = await getContactsWithEmailOrPhoneNumber(
         email,
         phoneNumber
       );
 
-      const existingContact = matches.find(
-        (item) => item.email === email && item.phoneNumber === phoneNumber
-      );
-
-      if (existingContact) {
-        primaryContactId = findPrimaryContact(existingContact);
+      if (matches.length === 0) {
+        const id = (await addContact(email, phoneNumber)).id;
+        res.status(200).send(await generateRespone(id));
+        return;
       }
 
       const withSameEmail = matches.filter(
@@ -51,44 +63,33 @@ app.post(
         (contact) => contact.phoneNumber === phoneNumber
       );
 
-      if (existingContact) {
-        primaryContactId = findPrimaryContact(existingContact);
-      } else if (matches.length === 0) {
-        primaryContactId = (await addContact(email, phoneNumber)).id;
-      } else if (email === null || phoneNumber === null) {
-        primaryContactId = findPrimaryContacts(matches)[0];
-      } else if (
-        withSamePhoneNumber.length === 0 ||
-        withSameEmail.length === 0
-      ) {
+      if (withSamePhoneNumber.length === 0 || withSameEmail.length === 0) {
         const oldestContact = matches[0];
-        primaryContactId = findPrimaryContact(oldestContact);
-        await addContact(email, phoneNumber, primaryContactId, 'secondary');
+        const id = findPrimaryContactId(oldestContact);
+        await addContact(email, phoneNumber, id, 'secondary');
+        res.status(StatusCodes.OK).send(await generateRespone(id));
+        return;
+      }
+      let primaryContactId: number | null = null;
+      const primaryContactIds = findAllPrimaryContactIds(matches);
+      if (primaryContactIds.length === 1) {
+        primaryContactId = primaryContactIds[0];
       } else {
-        const parents = findPrimaryContacts(matches);
-        if (parents.length === 1) {
-          primaryContactId = parents[0];
+        const [p1, p2] = await Promise.all([
+          Contact.findByPk(primaryContactIds[0]),
+          Contact.findByPk(primaryContactIds[1]),
+        ]);
+
+        if (!p1 || !p2) {
+          throw new Error('Internal server error');
+        }
+
+        if (p1.createdAt < p2.createdAt) {
+          await updatePrimaryContact(p1.id, p2.id);
+          primaryContactId = p1.id;
         } else {
-          const p1 = await Contact.findByPk(parents[0]);
-          const p2 = await Contact.findByPk(parents[1]);
-
-          if (!p1 || !p2) {
-            throw new Error('Internal server error');
-          }
-
-          if (p1.createdAt < p2.createdAt) {
-            await Contact.update(
-              { linkedId: p1.id, linkPrecedence: 'secondary' },
-              { where: { [Op.or]: [{ id: p2.id }, { linkedId: p2.id }] } }
-            );
-            primaryContactId = p1.id;
-          } else {
-            await Contact.update(
-              { linkedId: p2.id, linkPrecedence: 'secondary' },
-              { where: { [Op.or]: [{ id: p1.id }, { linkedId: p1.id }] } }
-            );
-            primaryContactId;
-          }
+          await updatePrimaryContact(p2.id, p1.id);
+          primaryContactId = p2.id;
         }
       }
 
