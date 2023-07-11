@@ -93,17 +93,10 @@ app.post(
         }
       }
 
-      if (primaryContactId) {
-        const response = await generateRespone(primaryContactId);
-        res.status(200).json(response);
-        return;
-      } else {
-        res.status(500).json({
-          message: 'Internal server error',
-        });
-      }
+      const response = await generateRespone(primaryContactId);
+      res.status(StatusCodes.OK).json(response);
     } catch (err) {
-      res.status(500).json({
+      res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({
         message: 'Internal server error',
       });
     }
