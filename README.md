@@ -8,6 +8,8 @@ My resume [here](https://drive.google.com/file/d/1p5Uw9JBF9qozrO-1XmVb996YtVuO3K
 
 ## Setup
 
+Make sure your postgres server is running before running this
+
 Clone the repo
 
 ```(bash)
@@ -65,3 +67,7 @@ Start the services
 ```(bash)
 docker compose up
 ```
+
+It will expose the PORT 80 by default you can change it by editing the docker-compose.yml
+
+visit <http:localhost/identify>
