@@ -83,7 +83,7 @@ docker compose up
 
 It will expose the PORT 3000 by default you can change it by editing the docker-compose.yml
 
-send POST request to <http:localhost/identify>
+send POST request to <http:localhost:3000/identify>
 
 or use cUrl
 
