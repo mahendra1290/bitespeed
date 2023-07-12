@@ -2,7 +2,20 @@
 
 you can test it [here](http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify)
 
+please use http instead of https
+
 endpoint: <http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify>
+
+sample cURL
+
+```(bash)
+curl --location 'http://ec2-3-109-54-99.ap-south-1.compute.amazonaws.com/identify' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "efb@t.com",
+    "phoneNumber": "455"
+}'
+```
 
 My resume [here](https://drive.google.com/file/d/1p5Uw9JBF9qozrO-1XmVb996YtVuO3KrF/view?usp=sharing)
 
@@ -70,4 +83,15 @@ docker compose up
 
 It will expose the PORT 3000 by default you can change it by editing the docker-compose.yml
 
-visit <http:localhost/identify>
+send POST request to <http:localhost/identify>
+
+or use cUrl
+
+```(bash)
+curl --location 'http://localhost:3000/identify' \
+--header 'Content-Type: application/json' \
+--data-raw '{
+    "email": "h@g.com",
+    "phoneNumber": "1234"
+}'
+```
