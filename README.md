@@ -42,7 +42,7 @@ npm run dev
 
 ## Running tests
 
-Create .env.test.local this env will be used for testing
+Create .env.test.local this env will be used for testing, please use a different database for running test and it to env file
 
 ```(bash)
 cp .env.example .env.test.local
@@ -68,6 +68,6 @@ Start the services
 docker compose up
 ```
 
-It will expose the PORT 80 by default you can change it by editing the docker-compose.yml
+It will expose the PORT 3000 by default you can change it by editing the docker-compose.yml
 
 visit <http:localhost/identify>
